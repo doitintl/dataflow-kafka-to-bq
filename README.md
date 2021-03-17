@@ -84,7 +84,7 @@ mvn compile exec:java \
 --truststorePassword=$TRUSTSTORE_PASS \
 --keystoreObjName=$KEYSTORE_OBJECT_NAME \
 --truststoreObjName=$TRUSTSTORE_OBJECT_NAME \
---bucketName=$SSL_BUCKET_NAME"
+--bucketName=$SSL_BUCKET_NAME
 
 --keystorePath and  --truststorePath are Optional as describe above
 ```
