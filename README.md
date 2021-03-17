@@ -104,6 +104,7 @@ Next version will include the following things:
 * More flexebility 
 * More configurations
 * Script to generate keystore & truststore
+* Tests
 
 ### Stay Tune
 
