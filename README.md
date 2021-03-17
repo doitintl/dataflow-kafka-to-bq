@@ -32,8 +32,8 @@ export REGION=${"$(gcloud config get-value compute/region)":-"us-central1"} (Reu
 ```sh
 export KEYSTORE_PASS=<keystore_password> (Required)
 export TRUSTSTORE_PASS=<truststore_password> (Required)
-export KEYSTORE_PATH=<keystore_path> (Optional, default: "/tmp/kafka.keystore)
-export TRUSTSTORE_PATH=<truststore_path> (Optional, default: "/tmp/kafka.truststore)
+export KEYSTORE_PATH=<keystore_path> (Optional, default: "/tmp/kafka.keystore")
+export TRUSTSTORE_PATH=<truststore_path> (Optional, default: "/tmp/kafka.truststore")
 export KEYSTORE_OBJECT_NAME=<object_name> (Required)
 export TRUSTSTORE_OBJECT_NAME=<object_name> (Required)
 export SSL_BUCKET_NAME=<bucket_name> (Reuired)
