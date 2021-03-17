@@ -70,9 +70,6 @@ public class ConsumerFactoryFn implements SerializableFunction<Map<String, Objec
     private Map<String, Object> setKeystore(Map<String, Object> config) {
         try {
             Storage storage = StorageOptions.getDefaultInstance().getService();
-            // Storage storage =
-            // StorageOptions.newBuilder().setProjectId("oren-playground-297209")
-            // .setCredentials(GoogleCredentials.getApplicationDefault()).build().getService();
             Blob blob = storage.get(this.sslConfig.bucketName, this.sslConfig.keyObjectName);
             blob.downloadTo(Paths.get(this.sslConfig.keystorePath));
             File f = new File(this.sslConfig.keystorePath); // assuring the store file exists
