@@ -1,0 +1,81 @@
+version: '2'
+
+services:
+
+  zookeeper:
+    image: "wurstmeister/zookeeper:latest"
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888;2181
+
+  broker1:
+    image: wurstmeister/kafka:latest
+    hostname: broker1
+    ports:
+      - "9091:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ADVERTISED_HOST_NAME: 34.72.107.249
+      KAFKA_ADVERTISED_PORT: 9091
+      KAFKA_HOST_NAME: broker1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: SSL://broker1:9092
+      KAFKA_ADVERTISED_LISTENERS: SSL://34.72.107.249:9091
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms128M"
+      KAFKA_INTER_BROKER_LISTENER_NAME: SSL
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_SSL_KEYSTORE_LOCATION: '/certificates/kafka.keystore'
+      KAFKA_SSL_KEYSTORE_PASSWORD: '111111'
+      KAFKA_SSL_KEY_PASSWORD: '111111'
+      KAFKA_SSL_TRUSTSTORE_LOCATION: '/certificates/kafka.truststore'
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: '111111'
+      KAFKA_SSL_CLIENT_AUTH: 'required'
+    volumes:
+      - /tmp/kafka/kafka.truststore:/certificates/kafka.truststore
+      - /tmp/kafka/kafka.keystore:/certificates/kafka.keystore
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  broker2:
+    image: wurstmeister/kafka:latest
+    restart: always
+    #  command: ["sleep", "6000s"]
+    hostname: broker2
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ADVERTISED_HOST_NAME: 34.72.107.249
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_HOST_NAME: broker2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: SSL://broker2:9092
+      KAFKA_ADVERTISED_LISTENERS: SSL://34.72.107.249:9092
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms128M"
+      KAFKA_INTER_BROKER_LISTENER_NAME: SSL
+      KAFKA_SSL_KEYSTORE_LOCATION: '/certificates/kafka.keystore'
+      KAFKA_SSL_KEYSTORE_PASSWORD: '111111'
+      KAFKA_SSL_KEY_PASSWORD: '111111'
+      KAFKA_SSL_TRUSTSTORE_LOCATION: '/certificates/kafka.truststore'
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: '111111'
+      KAFKA_SSL_CLIENT_AUTH: 'required'
+    volumes:
+      - /tmp/kafka/kafka.truststore:/certificates/kafka.truststore
+      - /tmp/kafka/kafka.keystore:/certificates/kafka.keystore
+      - /var/run/docker.sock:/var/run/docker.sock
+  kafka-manager:
+    image: sheepkiller/kafka-manager
+    environment:
+      ZK_HOSTS: zookeeper:2181
+    logging:
+      options:
+        max-file: "5"
+        max-size: "10m"
+    ports:
+      - "9000:9000"
