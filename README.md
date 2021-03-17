@@ -95,3 +95,14 @@ Template can be executed using the following gcloud command.
 ```sh
 gcloud dataflow jobs run JOB_NAME --gcs-location ${TEMPLATE_LOCATION}
 ```
+
+### Next Version
+
+Next version will include the following things:
+* Docker compose file for local dev (Kafka, zookeeper ..)
+* Dead leater
+* More flexebility 
+* More configurations
+
+### Stay Tune
+
