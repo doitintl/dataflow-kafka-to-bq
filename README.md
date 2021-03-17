@@ -1,5 +1,5 @@
 # Kafka to BigQuery Dataflow Template
-The pipeline template read data from Kafka, transform the data and outputs the resulting records to BigQuery
+The pipeline template read data from Kafka (Support SSL), transform the data and outputs the resulting records to BigQuery
 
 ## Getting Started
 
