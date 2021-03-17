@@ -103,6 +103,7 @@ Next version will include the following things:
 * Dead leater
 * More flexebility 
 * More configurations
+* Script to generate keystore & truststore
 
 ### Stay Tune
 
