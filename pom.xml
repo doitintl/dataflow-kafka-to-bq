@@ -140,7 +140,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Google Cloud I/O - BigQuery, Bigtable, Datastore, Pub/Sub, Spanner -->
+        <!-- Google Cloud I/O - BigQuery, Pub/Sub, Cloud Storage -->
         <dependency>
             <groupId>org.apache.beam</groupId>
             <artifactId>beam-sdks-java-extensions-google-cloud-platform-core</artifactId>

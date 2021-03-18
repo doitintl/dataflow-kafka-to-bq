@@ -1,5 +1,6 @@
 package com.example.template;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
@@ -15,19 +16,20 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
 import org.apache.beam.sdk.io.kafka.KafkaIO;
+import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.WithTimestamps;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.example.template.Options;
 
 /**
  * An Apache Beam pipeline that reads JSON encoded messages from Kafka and
@@ -61,23 +63,11 @@ public class KafkaToBigquery {
                 options.getIsEnableSSL()
         );
 
-        var pipeline = Pipeline.create(options);
-        pipeline
-                .apply("Read messages from Kafka",
-                        KafkaIO.<String, String>read()
-                                .withBootstrapServers(options.getBootstrapServer())
-                                .withTopic(options.getInputTopic())
-                                .withConsumerFactoryFn(new ConsumerFactoryFn(sslConfig))
-                                .withKeyDeserializer(StringDeserializer.class)
-                                .withValueDeserializer(StringDeserializer.class)
-                                .withoutMetadata())
-                .apply("Get message contents", Values.<String>create())
-                .apply("Log messages and Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
-                        .via(message -> {
-                                LOG.debug("Received: {}", message);
-                                return GSON.fromJson(message, PageRating.class);
-                        })
-                )
+        final var pipeline = Pipeline.create(options);
+
+        final PCollection<PageRating> stream = getStream(options, sslConfig, pipeline);
+
+        stream
                 .apply("Add processing time", WithTimestamps.of((pageRating) -> new Instant(pageRating.processingTime)))
                 .apply("Fixed-size windows", Window.into(FixedWindows.of(windowSizeInMinutes)))
 
@@ -96,5 +86,44 @@ public class KafkaToBigquery {
                         .withWriteDisposition(WriteDisposition.WRITE_APPEND));
 
         pipeline.run();
+    }
+
+    private static PCollection<PageRating> getStream(Options options, SSLConfig sslConfig, Pipeline pipeline) {
+        if(options.getIsKafka()) {
+            return getKafkaStream(options, sslConfig, pipeline);
+        } else {
+            return getPubSubStream(options, pipeline);
+        }
+    }
+
+    private static PCollection<PageRating> getPubSubStream(Options options, Pipeline pipeline) {
+        return pipeline.apply("Read messages from Google PubSub", PubsubIO.readMessages()
+            .fromTopic(options.getInputTopic())
+        ).apply("Log messages and Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
+                .via(message -> {
+                    final String stringPayload = new String(message.getPayload(), StandardCharsets.UTF_8);
+                    LOG.debug("Received: {}", stringPayload);
+                    return GSON.fromJson(stringPayload, PageRating.class);
+                })
+        );
+    }
+
+    private static PCollection<PageRating> getKafkaStream(Options options, SSLConfig sslConfig, Pipeline pipeline) {
+        return pipeline
+                .apply("Read messages from Kafka",
+                        KafkaIO.<String, String>read()
+                                .withBootstrapServers(options.getBootstrapServer())
+                                .withTopic(options.getInputTopic())
+                                .withConsumerFactoryFn(new ConsumerFactoryFn(sslConfig))
+                                .withKeyDeserializer(StringDeserializer.class)
+                                .withValueDeserializer(StringDeserializer.class)
+                                .withoutMetadata())
+                .apply("Get message contents", Values.<String>create())
+                .apply("Log messages and Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
+                        .via(message -> {
+                            LOG.debug("Received: {}", message);
+                            return GSON.fromJson(message, PageRating.class);
+                        })
+                );
     }
 }
