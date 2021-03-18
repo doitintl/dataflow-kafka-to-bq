@@ -7,7 +7,12 @@ import org.apache.beam.sdk.options.Validation;
 import org.apache.avro.reflect.Nullable;
 
 public interface Options extends StreamingOptions {
-    @Description("Apache Kafka topic to read from.")
+    @Description("Use Kafka, if false set to Google PubSub")
+    @Default.Boolean(false)
+    Boolean getIsKafka();
+    void setIsKafka(Boolean value);
+
+    @Description("Apache Kafka/PubSub topic to read from.")
     @Validation.Required
     String getInputTopic();
     void setInputTopic(String value);
