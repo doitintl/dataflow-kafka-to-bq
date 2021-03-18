@@ -8,88 +8,49 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.cloud.storage.Blob;
 import java.util.Map;
 import java.io.File;
-import java.io.IOException;
-import java.io.FileNotFoundException;
 import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-//import jdk.internal.org.jline.utils.Log;
+import static java.lang.String.format;
+
 
 public class ConsumerFactoryFn implements SerializableFunction<Map<String, Object>, Consumer<byte[], byte[]>> {
-    /**
-     *
-     */
     private static final long serialVersionUID = 1L;
+    private final SSLConfig sslConfig;
 
-    private static final Logger LOG = LoggerFactory.getLogger(ConsumerFactoryFn.class);
-    private SSLConfig sslConfig;
-
-    public ConsumerFactoryFn(SSLConfig sslConfiguration) {
+    public ConsumerFactoryFn(final SSLConfig sslConfiguration) {
         this.sslConfig = sslConfiguration;
     }
 
-    public Consumer<byte[], byte[]> apply(Map<String, Object> config) {
+    public Consumer<byte[], byte[]> apply(final Map<String, Object> config) {
         if (sslConfig.isEnable) {
-            try {
-                config.put("security.protocol", (Object) "SSL");
-                config = setTruststore(config);
-                config = setKeystore(config);
-            } catch (Exception e) {
-                LOG.error(e.getMessage());
-            }
+            return new KafkaConsumer<>(setSSLConfig(config));
         }
-
-        return new KafkaConsumer<byte[], byte[]>(config);
+        return new KafkaConsumer<>(config);
     }
 
-    private Map<String, Object> setTruststore(Map<String, Object> config) {
-        try {
-            Storage storage = StorageOptions.getDefaultInstance().getService();
-            Blob blob = storage.get(this.sslConfig.bucketName, this.sslConfig.trustObjectName);
-            blob.downloadTo(Paths.get(this.sslConfig.truststorePath));
-            File f = new File(this.sslConfig.truststorePath); // assuring the store file exists
-            if (f.exists()) {
-                LOG.debug("key exists");
+    private Map<String, Object> setSSLConfig(final Map<String, Object> config) {
+        final Storage storage = StorageOptions.getDefaultInstance().getService();
 
-            } else {
-                LOG.error("key does not exist");
+        config.put("security.protocol", "SSL");
+        config.put("ssl.keystore.location", sslConfig.keystorePath);
+        config.put("ssl.keystore.password", sslConfig.keystorePassword);
+        config.put("ssl.key.password", sslConfig.keystorePassword);
+        config.put("ssl.truststore.location", sslConfig.truststorePath);
+        config.put("ssl.truststore.password", sslConfig.truststorePassword);
 
-            }
+        getBlob(storage, sslConfig.truststorePath, sslConfig.truststorePath);
+        getBlob(storage, sslConfig.keyObjectName, sslConfig.keystorePath);
 
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            LOG.error(e.getMessage());
-        }
-
-        config.put("ssl.truststore.location", (Object) this.sslConfig.truststorePath);
-        config.put("ssl.truststore.password", (Object) this.sslConfig.truststorePassword);
         return config;
     }
 
-    private Map<String, Object> setKeystore(Map<String, Object> config) {
-        try {
-            Storage storage = StorageOptions.getDefaultInstance().getService();
-            Blob blob = storage.get(this.sslConfig.bucketName, this.sslConfig.keyObjectName);
-            blob.downloadTo(Paths.get(this.sslConfig.keystorePath));
-            File f = new File(this.sslConfig.keystorePath); // assuring the store file exists
-            if (f.exists()) {
-                LOG.debug("key exists");
-
-            } else {
-                LOG.error("key does not exist");
-
-            }
-
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            LOG.error(e.getMessage());
+    private void getBlob(final Storage storage, final String path, final String objectName) {
+        final Blob blob = storage.get(this.sslConfig.bucketName, objectName);
+        blob.downloadTo(Paths.get(path));
+        final File keyfile = new File(path);
+        if (!keyfile.exists()) {
+            throw new RuntimeException(format("SSL key file %s does not exist", objectName));
         }
-
-        config.put("ssl.keystore.location", (Object) this.sslConfig.keystorePath);
-        config.put("ssl.keystore.password", (Object) this.sslConfig.keystorePassword);
-        config.put("ssl.key.password", (Object) this.sslConfig.keystorePassword);
-        return config;
     }
 }
 

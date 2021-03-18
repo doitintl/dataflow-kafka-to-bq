@@ -4,14 +4,14 @@ import java.io.Serializable;
 import java.util.Map;
 
 public class SSLConfig implements Serializable {
-    String keystorePath;
-    String truststorePath;
-    String keystorePassword;
-    String truststorePassword;
-    String bucketName;
-    String keyObjectName;
-    String trustObjectName;
-    Boolean isEnable;
+    final String keystorePath;
+    final String truststorePath;
+    final String keystorePassword;
+    final String truststorePassword;
+    final String bucketName;
+    final String keyObjectName;
+    final String trustObjectName;
+    final Boolean isEnable;
 
     public SSLConfig(String keystorePath, String keystorePassword, String keyObjectName,
                           String truststorePath, String truststorePassword, String trustObjectName, String bucketName,

@@ -15,11 +15,7 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.WriteDisposition;
 import org.apache.beam.sdk.io.kafka.KafkaIO;
-import org.apache.beam.sdk.options.Default;
-import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.StreamingOptions;
-import org.apache.beam.sdk.options.Validation;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.WithTimestamps;
@@ -31,6 +27,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.example.template.Options;
 
 /**
  * An Apache Beam pipeline that reads JSON encoded messages from Kafka and
@@ -39,64 +36,6 @@ import org.slf4j.LoggerFactory;
 public class KafkaToBigquery {
     private static final Logger LOG = LoggerFactory.getLogger(KafkaToBigquery.class);
     private static final Gson GSON = new Gson();
-
-    public interface Options extends StreamingOptions {
-        @Description("Apache Kafka topic to read from.")
-        @Validation.Required
-        String getInputTopic();
-        void setInputTopic(String value);
-
-        @Description("BigQuery table to write to, in the form 'project:dataset.table' or 'dataset.table'.")
-        @Default.String("kafka-bq.sample")
-        String getOutputTable();
-        void setOutputTable(String value);
-
-        @Description("Apache Kafka bootstrap servers in the form 'hostname:port'.")
-        @Default.String("localhost:9092")
-        String getBootstrapServer();
-        void setBootstrapServer(String value);
-
-        @Description("Kafka truststore path")
-        @Default.String("/tmp/kafka.truststore")
-        String getTruststorePath();
-        void setTruststorePath(String value);
-
-        @Description("Kafka keystore path")
-        @Default.String("/tmp/kafka.keystore")
-        String getKeystorePath();
-        void setKeystorePath(String value);
-
-        @Description("Kafka keystore password")
-        @Nullable
-        String getKeystorePassword();
-        void setKeystorePassword(String value);
-
-        @Description("Kafka truststore password")
-        @Nullable
-        String getTruststorePassword();
-        void setTruststorePassword(String value);
-
-        @Description("Kafka keystore object name in GCS")
-        @Nullable
-        String getKeystoreObjName();
-        void setKeystoreObjName(String value);
-
-        @Description("Kafka truststore object name in GCS")
-        @Nullable
-        String getTruststoreObjName();
-        void setTruststoreObjName(String value);
-
-        @Description("SSL bucket name")
-        @Nullable
-        String getBucketName();
-        void setBucketName(String value);
-
-        @Description("Enable SSL")
-        @Default.Boolean(false)
-        Boolean getIsEnableSSL();
-        void setIsEnableSSL(Boolean value);
-
-    }
 
     @DefaultCoder(AvroCoder.class)
     private static class PageRating {
@@ -107,10 +46,11 @@ public class KafkaToBigquery {
 
 
     public static void main(final String[] args) {
-        Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
+        final Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
         options.setStreaming(true);
+        final Duration windowSizeInMinutes = Duration.standardMinutes(options.getWindowSize());
 
-        SSLConfig sslConfig = new SSLConfig(
+        final SSLConfig sslConfig = new SSLConfig(
                 options.getKeystorePath(),
                 options.getKeystorePassword(),
                 options.getKeystoreObjName(),
@@ -132,16 +72,14 @@ public class KafkaToBigquery {
                                 .withValueDeserializer(StringDeserializer.class)
                                 .withoutMetadata())
                 .apply("Get message contents", Values.<String>create())
-                .apply("Log messages", MapElements.into(TypeDescriptor.of(String.class))
+                .apply("Log messages and Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
                         .via(message -> {
-                            LOG.info("Received: {}", message);
-                            return message;
-                        }))
-                .apply("Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
-                        .via(message -> GSON.fromJson(message, PageRating.class)))
-
+                                LOG.debug("Received: {}", message);
+                                return GSON.fromJson(message, PageRating.class);
+                        })
+                )
                 .apply("Add processing time", WithTimestamps.of((pageRating) -> new Instant(pageRating.processingTime)))
-                .apply("Fixed-size windows", Window.into(FixedWindows.of(Duration.standardMinutes(1))))
+                .apply("Fixed-size windows", Window.into(FixedWindows.of(windowSizeInMinutes)))
 
                 .apply("Convert to BigQuery TableRow", MapElements.into(TypeDescriptor.of(TableRow.class))
                         .via(pageRating -> new TableRow()
@@ -157,7 +95,6 @@ public class KafkaToBigquery {
                         .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED)
                         .withWriteDisposition(WriteDisposition.WRITE_APPEND));
 
-        // For a Dataflow Flex Template, do NOT waitUntilFinish().
         pipeline.run();
     }
 }
