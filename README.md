@@ -74,6 +74,21 @@ mvn compile exec:java \
                   --bootstrapServer=$KAFKA_BROKER \
                   --region=$REGION"
 ```
+Optionally specify window size (10 minutes example):
+```sh
+mvn compile exec:java \
+     -Dexec.mainClass=com.example.template.KafkaToBigquery \
+     -Dexec.args="--runner=DataflowRunner \
+                  --project=$PROJECT \
+                  --stagingLocation=$STAGING_LOCATION \
+                  --gcpTempLocation=$TEMP_LOCATION \
+                  --templateLocation=$TEMPLATE_LOCATION \
+                  --inputTopic=$INPUT_TOPIC \
+                  --outputTable=$OUTPUT_TABLE \
+                  --bootstrapServer=$KAFKA_BROKER \
+                  --windowSize=10 \
+                  --region=$REGION"
+```
 
 ### Enable SSL for the template building
 ```sh
