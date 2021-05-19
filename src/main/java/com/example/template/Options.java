@@ -66,4 +66,9 @@ public interface Options extends StreamingOptions {
     @Default.Integer(1)
     Integer getWindowSize();
     void setWindowSize(Integer value);
+
+    @Description("Key value pairs for config, option1=value,option2=value")
+    @Nullable
+    String getConsumerConfig();
+    void setConsumerConfig(String value);
 }

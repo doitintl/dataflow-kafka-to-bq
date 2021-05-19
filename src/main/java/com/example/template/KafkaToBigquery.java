@@ -1,6 +1,8 @@
 package com.example.template;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Optional;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
@@ -27,7 +29,6 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.example.template.Options;
 
 /**
  * An Apache Beam pipeline that reads JSON encoded messages from Kafka and
@@ -50,27 +51,41 @@ public class KafkaToBigquery {
         options.setStreaming(true);
         final Duration windowSizeInMinutes = Duration.standardMinutes(options.getWindowSize());
 
-        final SSLConfig sslConfig = new SSLConfig(
-                options.getKeystorePath(),
-                options.getKeystorePassword(),
-                options.getKeystoreObjName(),
-                options.getTruststorePath(),
-                options.getTruststorePassword(),
-                options.getTruststoreObjName(),
-                options.getBucketName(),
-                options.getIsEnableSSL()
-        );
+        var readSettings =
+          KafkaIO.<String, String>read().withKeyDeserializer(StringDeserializer.class)
+          .withValueDeserializer(StringDeserializer.class);
+
+        if (options.getConsumerConfig() != null) {
+            final HashMap<String, Object> consumerConfig = new HashMap<>();
+            Arrays.stream(options.getConsumerConfig().split(",")).forEach(option -> {
+                final var keyValue = option.split("=");
+                final var key = keyValue[0];
+                final var value = keyValue[1];
+                consumerConfig.put(key, value);
+            });
+            readSettings = readSettings.withConsumerConfigUpdates(consumerConfig);
+        } else {
+            final SSLConfig sslConfig = new SSLConfig(
+              options.getKeystorePath(),
+              options.getKeystorePassword(),
+              options.getKeystoreObjName(),
+              options.getTruststorePath(),
+              options.getTruststorePassword(),
+              options.getTruststoreObjName(),
+              options.getBucketName(),
+              options.getIsEnableSSL()
+            );
+
+            readSettings = readSettings
+              .withBootstrapServers(options.getBootstrapServer())
+              .withTopic(options.getInputTopic())
+              .withConsumerFactoryFn(new ConsumerFactoryFn(sslConfig));
+        }
 
         var pipeline = Pipeline.create(options);
         pipeline
-                .apply("Read messages from Kafka",
-                        KafkaIO.<String, String>read()
-                                .withBootstrapServers(options.getBootstrapServer())
-                                .withTopic(options.getInputTopic())
-                                .withConsumerFactoryFn(new ConsumerFactoryFn(sslConfig))
-                                .withKeyDeserializer(StringDeserializer.class)
-                                .withValueDeserializer(StringDeserializer.class)
-                                .withoutMetadata())
+                .apply("Read messages from Kafka", readSettings
+                  .withoutMetadata())
                 .apply("Get message contents", Values.<String>create())
                 .apply("Log messages and Parse JSON", MapElements.into(TypeDescriptor.of(PageRating.class))
                         .via(message -> {
