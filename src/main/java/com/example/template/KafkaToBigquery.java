@@ -51,36 +51,35 @@ public class KafkaToBigquery {
         options.setStreaming(true);
         final Duration windowSizeInMinutes = Duration.standardMinutes(options.getWindowSize());
 
-        var readSettings =
-          KafkaIO.<String, String>read().withKeyDeserializer(StringDeserializer.class)
-          .withValueDeserializer(StringDeserializer.class);
+        final HashMap<String, Object> consumerConfig = new HashMap<>();
 
         if (options.getConsumerConfig() != null) {
-            final HashMap<String, Object> consumerConfig = new HashMap<>();
             Arrays.stream(options.getConsumerConfig().split(",")).forEach(option -> {
                 final var keyValue = option.split("=");
                 final var key = keyValue[0];
                 final var value = keyValue[1];
                 consumerConfig.put(key, value);
             });
-            readSettings = readSettings.withConsumerConfigUpdates(consumerConfig);
-        } else {
-            final SSLConfig sslConfig = new SSLConfig(
-              options.getKeystorePath(),
-              options.getKeystorePassword(),
-              options.getKeystoreObjName(),
-              options.getTruststorePath(),
-              options.getTruststorePassword(),
-              options.getTruststoreObjName(),
-              options.getBucketName(),
-              options.getIsEnableSSL()
-            );
+        }
 
-            readSettings = readSettings
+        final SSLConfig sslConfig = new SSLConfig(
+          options.getKeystorePath(),
+          options.getKeystorePassword(),
+          options.getKeystoreObjName(),
+          options.getTruststorePath(),
+          options.getTruststorePassword(),
+          options.getTruststoreObjName(),
+          options.getBucketName(),
+          options.getIsEnableSSL()
+        );
+
+        final var readSettings =
+          KafkaIO.<String, String>read().withKeyDeserializer(StringDeserializer.class)
+            .withValueDeserializer(StringDeserializer.class)
+              .withConsumerConfigUpdates(consumerConfig)
               .withBootstrapServers(options.getBootstrapServer())
               .withTopic(options.getInputTopic())
               .withConsumerFactoryFn(new ConsumerFactoryFn(sslConfig));
-        }
 
         var pipeline = Pipeline.create(options);
         pipeline
